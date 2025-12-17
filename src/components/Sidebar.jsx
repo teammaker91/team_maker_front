@@ -1,14 +1,47 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./Sidebar.css";
+
+import { getFilters } from "../api/filters";
+import { getProjects, createProject } from "../api/projects";
+
 import { Rows01, Folder, ChevronDown } from "@untitledui/icons";
 
 function Sidebar() {
   const [expanded, setExpanded] = useState(false);
   const [openFolder, setOpenFolder] = useState(null);
 
+const [filters, setFilters] = useState([]);
+const [projects, setProjects] = useState([]);
+const [newProjectName, setNewProjectName] = useState("");
+
+const handleCreateProject = (e) => {
+  e.preventDefault(); // IMPORTANT
+  if (!newProjectName.trim()) return;
+
+  createProject(newProjectName).then((newProj) => {
+    if (!newProj) return;
+
+    setProjects(prev => [...prev, newProj]);
+    setNewProjectName("");
+    setOpenFolder("myProjects");
+  });
+};
+
+
+
+  useEffect(() => {
+    //filters
+    getFilters().then(data => setFilters(data));
+    //projects
+    getProjects().then(data => setProjects(data));
+  }, []);
+
   const toggleFolder = (folder) => {
     setOpenFolder(openFolder === folder ? null : folder);
   };
+
+
+
 
   return (
     <div
@@ -28,11 +61,12 @@ function Sidebar() {
       </button>
       {openFolder === "filter" && expanded && (
         <div className="submenu">
-          <button className="submenu-item">Биология</button>
-          <button className="submenu-item">География</button>
-          <button className="submenu-item">Программирование</button>
-          <button className="submenu-item">Физика</button>
-          <button className="submenu-item">Химия</button>
+
+          {filters.map((filter) => (
+            <button key={filter} className="submenu-item">
+              {filter}
+            </button>
+          ))}
         </div>
       )}
 
@@ -50,10 +84,14 @@ function Sidebar() {
         )}
       </button>
       {openFolder === "myProjects" && expanded && (
-        <div className="submenu">
-          <button className="submenu-item">Все проекты</button>
-          <button className="submenu-item">Избранные</button>
-          <button className="submenu-item">Командные</button>
+       <div className="submenu">
+          {projects.length === 0 ? <span className="submenu-item">Пусто</span>
+            : projects.map((proj) => (
+                <button key={proj.id} className="submenu-item">
+                  {proj.name}
+                </button>
+              ))
+          }
         </div>
       )}
 
@@ -74,11 +112,16 @@ function Sidebar() {
 {openFolder === "createProject" && expanded && (
   <div className="submenu">
     <input
-      type="text"
-      placeholder="Название проекта"
-      className="create-input"
-    />
-    <button className="sub-item create-btn">Создать</button>
+  type="text"
+  placeholder="Название проекта"
+  className="create-input"
+  value={newProjectName}
+  onChange={(e) => setNewProjectName(e.target.value)}
+/>
+
+ <button type="button" className="sub-item create-btn" onClick={handleCreateProject}>Создать</button>
+
+
   </div>
 )}
 

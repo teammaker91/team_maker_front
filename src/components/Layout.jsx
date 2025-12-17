@@ -1,14 +1,15 @@
 import Header from './Header';
 import Sidebar from './Sidebar';
 
-function Layout({ children }) {
+function Layout({ children, openModal }) {
     return (
         <div className="layout">
-            <Header />
+            <Header openModal={openModal} />
+
             <div className="layout-body">
                 <Sidebar />
                 <main className="layout-content">
-                    {children} {/*Place where each page renders*/}
+                    {children}
                 </main>
             </div>
         </div>
