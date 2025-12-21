@@ -18,6 +18,7 @@ function LoginPage({ onClose, defaultTab = "login" }) {
     e.preventDefault();
     setError("");
 
+
     try {
       const url = tab === "login" ? "/api/auth/login" : "/api/auth/register";
       const body = tab === "login" 
@@ -33,8 +34,9 @@ function LoginPage({ onClose, defaultTab = "login" }) {
 
       const data = await res.json();
 
+
       if (!res.ok) {
-        setError(data.msg || "Something went wrong");
+        setError(data.error || data.msg || "Something went wrong");
         return;
       }
 
@@ -42,6 +44,8 @@ function LoginPage({ onClose, defaultTab = "login" }) {
       console.log("Logged in/register success:", data.user);
 
       onClose(); // close modal after success
+
+      
     } catch (err) {
       console.error(err);
       setError("Server error, try again later");

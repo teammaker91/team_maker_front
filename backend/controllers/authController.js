@@ -1,52 +1,66 @@
-import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
-import User from "../models/User"
+import jwt from "jsonwebtoken";
+import User from "../models/User.js";
 
+// ======================
+// REGISTER
+// ======================
 export const register = async (req, res) => {
-    try{
-        const {name, email, password} = req.body;
-        const existing = await User.findOne({email});
-        if(existing) return res.status(400).json({msg: "Email already used"});
-        const hash = await bcrypt.hash(password, 10);
-        const user = await User.create({
-            name,
-            email,
-            password: hash
-        });
-        return res.satus(201).json({ msg: "User created"});
+  try {
+    const { username, email, password } = req.body;
 
+    // Check for duplicates in one query
+    const existing = await User.findOne({ $or: [{ email }, { username }] });
+    if (existing) {
+      return res.status(400).json({
+        error: existing.email === email ? "Email already used" : "Username already used"
+      });
     }
-    catch(err) {
-        return res.status(500).json({msg: "Server error, no user created?"});
-    }
+
+    // Create user
+    const user = await User.create({ username, email, password });
+
+    // Optionally: generate verification token here
+    const token = user.createVerificationToken();
+    await user.save();
+
+    // Return user (password hidden)
+    return res.status(201).json({ user: user.getPublicProfile(), verificationToken: token });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error, user not created" });
+  }
 };
 
+// ======================
+// LOGIN
+// ======================
 export const login = async (req, res) => {
-    try {
-        const {email, password} = req.body;
-        const user = await User.findOne({email});
-        if(!user) return res.status(400).json({ msg: "Invalid credentials"});
+  try {
+    const { email, password } = req.body;
 
-        const valid = await bcrypt.compare(password, user.password);
-        if(!valid) return res.status(400).json({
-            msg: "Invalid credentials"
-        });
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) return res.status(400).json({ error: "Invalid credentials" });
 
-        const token = jwt.sign(
-            {id: user._id},
-            process.env.JWT_SECRET,
-            {expiresIn: "7d"}
-        );
-        return res.json({
-            token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email
-            }
-        });
-    }
-    catch(err) {
-        return res.status(500).json({ msg: "Server error User can't login"});
-    }
+    // Check password using schema method
+    const isValid = await user.comparePassword(password);
+    if (!isValid) return res.status(400).json({ error: "Invalid credentials" });
+
+    // Optional: check banned
+    if (user.isBanned) return res.status(403).json({ error: "Account banned" });
+
+    // Optional: check email verification
+    if (!user.isVerified) return res.status(403).json({ error: "Email not verified" });
+
+    // Update last login
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Generate JWT
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
+    return res.json({ token, user: user.getPublicProfile() });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Server error, cannot login" });
+  }
 };
